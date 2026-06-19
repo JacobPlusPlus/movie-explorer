@@ -2,52 +2,60 @@ import { useState, useEffect, useRef } from 'react';
 import { fromEvent, from } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, Plus, Calendar, Bookmark, Film } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Dodano hook do przekierowań
+// Dodaliśmy ikonę Check
+import { Search, Loader2, Plus, Calendar, Bookmark, Film, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { fetchMoviesMock } from '../api/mockData';
 
-// Jeśli zostawisz pusty lub błędny, aplikacja i tak zadziała na mocku!
 const OMDB_API_KEY = import.meta.env.VITE_OMDB_API_KEY;
 
 function MoviesList() {
   const [movies, setMovies] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  // NOWE: Stan przechowujący ID zapisanych filmów do zmiany koloru przycisku
+  const [savedMovieIds, setSavedMovieIds] = useState([]); 
   const searchInputRef = useRef(null);
-  const navigate = useNavigate(); // Inicjalizacja nawigacji
+  const navigate = useNavigate();
 
-  // HYBRYDOWA FUNKCJA POBIERANIA (Real API + Fallback)
+  // NOWE: Synchronizacja przycisków z localStorage przy starcie aplikacji
+  useEffect(() => {
+    const updateSavedIds = () => {
+      const savedList = JSON.parse(localStorage.getItem('myMovies')) || [];
+      setSavedMovieIds(savedList.map(movie => movie.id));
+    };
+    
+    updateSavedIds();
+    // Nasłuchujemy zmian w pamięci (jak ktoś usunie film w innej zakładce, przycisk sam wróci do normy)
+    window.addEventListener('storage', updateSavedIds);
+    return () => window.removeEventListener('storage', updateSavedIds);
+  }, []);
+
   const fetchMoviesWithFallback = async (searchTerm) => {
-    // Jeśli wyszukiwarka jest pusta, ładujemy domyślną listę z mocka
-    if (!searchTerm) {
-      return fetchMoviesMock('');
-    }
+    // NOWE TRIK: Jeśli pole jest puste, dla OMDb ładujemy domyślnie "Avengers"
+    const apiQuery = searchTerm || 'Avengers';
 
     try {
-      // 1. Próbujemy uderzyć do prawdziwego API OMDb
-      const response = await fetch(`https://www.omdbapi.com/?s=${searchTerm}&apikey=${OMDB_API_KEY}`);
+      const response = await fetch(`https://www.omdbapi.com/?s=${apiQuery}&apikey=${OMDB_API_KEY}`);
       const data = await response.json();
 
-      // Jeśli API zwróci poprawne wyniki (True)
       if (data.Response === "True") {
         return data.Search.map(movie => ({
           id: movie.imdbID,
           title: movie.Title,
           year: movie.Year,
-          genre: movie.Type === 'movie' ? 'Film' : 'Serial', // OMDb zwraca typ, zamieniamy na nasz gatunek
-          poster: movie.Poster !== 'N/A' ? movie.Poster : null // Zabezpieczenie przed brakiem plakatu
+          genre: movie.Type === 'movie' ? 'Film' : 'Serial',
+          poster: movie.Poster !== 'N/A' ? movie.Poster : null
         }));
       } else {
-        // Jeśli film nie istnieje w API, rzucamy błąd, by uruchomić mechanizm ratunkowy
-        throw new Error("Brak wyników z API lub błędny klucz");
+        throw new Error("Brak wyników z API");
       }
     } catch (error) {
-      console.warn("Prawdziwe API nie odpowiedziało. Przełączanie na dane zapasowe (Mock)...");
-      // 2. Mechanizm Fallback - API zawiodło, więc serwujemy dane lokalne
+      console.warn("API niedostępne. Przełączanie na Mocki...");
+      // Jeśli searchTerm było puste i API padło, fetchMoviesMock zwróci po prostu całą bazę domyślną
       return fetchMoviesMock(searchTerm);
     }
   };
 
-  // Pierwsze załadowanie pustej listy (pobierze mocka)
   useEffect(() => {
     setIsLoading(true);
     fetchMoviesWithFallback('').then(data => {
@@ -56,7 +64,6 @@ function MoviesList() {
     });
   }, []);
 
-  // RXJS: Genialna asynchroniczność pozostaje nienaruszona
   useEffect(() => {
     if (!searchInputRef.current) return;
 
@@ -66,7 +73,7 @@ function MoviesList() {
       distinctUntilChanged(),
       switchMap(searchTerm => {
         setIsLoading(true);
-        return from(fetchMoviesWithFallback(searchTerm)); // Używamy naszej hybrydowej funkcji
+        return from(fetchMoviesWithFallback(searchTerm));
       })
     );
 
@@ -78,14 +85,12 @@ function MoviesList() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // NOWA LOGIKA DODAWANIA Z BLOKADĄ (Auth Guard)
   const addToMyList = (movie) => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    
-    // Sprawdzamy, czy użytkownik ma uprawnienia
+
     if (!isLoggedIn) {
       alert("🔒 Musisz być zalogowany, aby tworzyć swoją własną kolekcję!");
-      navigate('/login'); // Automatyczne przeniesienie do logowania
+      navigate('/login');
       return;
     }
 
@@ -93,9 +98,10 @@ function MoviesList() {
     if (!savedList.find(m => m.id === movie.id)) {
       savedList.push(movie);
       localStorage.setItem('myMovies', JSON.stringify(savedList));
-      window.dispatchEvent(new Event('storage')); // Odśwież licznik w Navbarze
-    } else {
-      alert('Ten film znajduje się już w Twojej kolekcji.');
+      
+      // Natychmiastowa aktualizacja stanu, aby przycisk zmienił się na "Added"
+      setSavedMovieIds(prev => [...prev, movie.id]);
+      window.dispatchEvent(new Event('storage'));
     }
   };
 
@@ -148,65 +154,78 @@ function MoviesList() {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           <AnimatePresence>
-            {movies.map((movie, index) => (
-              <motion.div
-                key={movie.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-                whileHover={{ y: -6, scale: 1.04 }}
-                className="bg-card border border-border-color rounded-2xl overflow-hidden group shadow-lg flex flex-col justify-between h-[360px] relative will-change-transform"
-              >
-                {/* DYNAMICZNY PLAKAT - API vs MOCK */}
-                {movie.poster ? (
-                  // Jeśli API zwróciło prawdziwy plakat:
-                  <div className="h-44 w-full relative overflow-hidden border-b border-border-color">
-                    <img 
-                      src={movie.poster} 
-                      alt={movie.title} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                      <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
-                    </div>
-                    <span className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-md border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary z-20 shadow-xl">
-                      {movie.genre}
-                    </span>
-                  </div>
-                ) : (
-                  // Jeśli plakatu brak lub działamy na mockach (sztuczny gradient):
-                  <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                      <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
-                    </div>
-                    <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
-                    <span className="absolute bottom-3 left-3 bg-card border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary shadow-lg z-20">
-                      {movie.genre}
-                    </span>
-                  </div>
-                )}
+            {movies.map((movie, index) => {
+              // NOWE: Sprawdzamy, czy ten konkretny film jest już na liście
+              const isAdded = savedMovieIds.includes(movie.id);
 
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1">
-                    <h4 className="text-lg font-bold text-white tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
-                      {movie.title}
-                    </h4>
-                    <div className="flex items-center gap-1 text-xs text-text-secondary font-medium">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>{movie.year} r.</span>
+              return (
+                <motion.div
+                  key={movie.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  whileHover={{ y: -6, scale: 1.04 }}
+                  className="bg-card border border-border-color rounded-2xl overflow-hidden group shadow-lg flex flex-col justify-between h-[360px] relative will-change-transform"
+                >
+                  {/* DYNAMICZNY PLAKAT */}
+                  {movie.poster ? (
+                    <div className="h-44 w-full relative overflow-hidden border-b border-border-color">
+                      <img 
+                        src={movie.poster} 
+                        alt={movie.title} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
+                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
+                      </div>
+                      <span className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-md border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary z-20 shadow-xl">
+                        {movie.genre}
+                      </span>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
+                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
+                      </div>
+                      <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
+                      <span className="absolute bottom-3 left-3 bg-card border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary shadow-lg z-20">
+                        {movie.genre}
+                      </span>
+                    </div>
+                  )}
 
-                  <button 
-                    onClick={() => addToMyList(movie)} 
-                    className="w-full flex items-center justify-center gap-1.5 bg-secondary-bg hover:bg-primary border border-border-color hover:border-primary text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-200"
-                  >
-                    <Plus className="w-4 h-4" /> Add to List
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <h4 className="text-lg font-bold text-white tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
+                        {movie.title}
+                      </h4>
+                      <div className="flex items-center gap-1 text-xs text-text-secondary font-medium">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{movie.year} r.</span>
+                      </div>
+                    </div>
+
+                    {/* NOWE: DYNAMICZNY PRZYCISK (Stan zwykły vs Sukces) */}
+                    <button 
+                      onClick={() => addToMyList(movie)} 
+                      disabled={isAdded}
+                      className={`w-full flex items-center justify-center gap-1.5 border text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-300 ${
+                        isAdded 
+                          ? 'bg-green-600 border-green-500 cursor-default opacity-90' 
+                          : 'bg-secondary-bg hover:bg-primary border-border-color hover:border-primary'
+                      }`}
+                    >
+                      {isAdded ? (
+                        <><Check className="w-4 h-4" /> Added</>
+                      ) : (
+                        <><Plus className="w-4 h-4" /> Add to List</>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
 

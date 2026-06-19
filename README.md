@@ -33,4 +33,4 @@ src/
 ├── App.jsx                # Routing, nawigacja, stan
 └── main.jsx
 
-![Screenshot aplikacji](public/assets/screenshot.png)
+![Screenshot aplikacji](screenshot.png)

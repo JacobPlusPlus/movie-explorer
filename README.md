@@ -32,3 +32,5 @@ src/
 │   └── MyList.jsx         # Prywatna lista filmów
 ├── App.jsx                # Routing, nawigacja, stan
 └── main.jsx
+```
+![Screenshot aplikacji](screenshot.png)

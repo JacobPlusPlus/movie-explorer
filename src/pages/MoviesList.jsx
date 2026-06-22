@@ -177,8 +177,16 @@ function MoviesList() {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
+                        <Bookmark 
+                          className={`w-8 h-8 scale-75 group-hover:scale-100 transition-transform duration-300 ${isAdded ? 'text-primary fill-primary' : 'text-white'}`}
+                        />
                       </div>
+                      {/* Stała ikonka bookmark w rogu gdy film dodany */}
+                      {isAdded && (
+                        <div className="absolute top-2 right-2 z-20">
+                          <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
+                        </div>
+                      )}
                       <span className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-md border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary z-20 shadow-xl">
                         {movie.genre}
                       </span>
@@ -186,8 +194,16 @@ function MoviesList() {
                   ) : (
                     <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
+                        <Bookmark 
+                          className={`w-8 h-8 scale-75 group-hover:scale-100 transition-transform duration-300 ${isAdded ? 'text-primary fill-primary' : 'text-white'}`}
+                        />
                       </div>
+                      {/* Stała ikonka bookmark w rogu gdy film dodany */}
+                      {isAdded && (
+                        <div className="absolute top-2 right-2 z-20">
+                          <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
+                        </div>
+                      )}
                       <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
                       <span className="absolute bottom-3 left-3 bg-card border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary shadow-lg z-20">
                         {movie.genre}

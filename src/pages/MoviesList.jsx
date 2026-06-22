@@ -3,7 +3,7 @@ import { fromEvent, from } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { motion, AnimatePresence } from 'framer-motion';
 // Dodaliśmy ikonę Check
-import { Search, Loader2, Plus, Calendar, Bookmark, Film } from 'lucide-react';
+import { Search, Loader2, Plus, Calendar, Bookmark, Film, Check, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchMoviesMock } from '../api/mockData';
 
@@ -14,6 +14,7 @@ function MoviesList() {
   const [isLoading, setIsLoading] = useState(false);
   // NOWE: Stan przechowujący ID zapisanych filmów do zmiany koloru przycisku
   const [savedMovieIds, setSavedMovieIds] = useState([]); 
+  const [hoveredId, setHoveredId] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -181,8 +182,8 @@ function MoviesList() {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                       />
                       {isAdded && (
-                        <div className="absolute top-2 right-2 z-20">
-                          <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
+                        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                          <Bookmark className="w-10 h-10 text-primary fill-primary drop-shadow-lg" />
                         </div>
                       )}
                       <span className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-md border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary z-20 shadow-xl">
@@ -191,12 +192,11 @@ function MoviesList() {
                     </div>
                   ) : (
                     <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
-                      {isAdded && (
-                        <div className="absolute top-2 right-2 z-20">
-                          <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
-                        </div>
+                      {isAdded ? (
+                        <Bookmark className="w-10 h-10 text-primary fill-primary drop-shadow-lg" />
+                      ) : (
+                        <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
                       )}
-                      <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
                       <span className="absolute bottom-3 left-3 bg-card border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary shadow-lg z-20">
                         {movie.genre}
                       </span>
@@ -215,15 +215,21 @@ function MoviesList() {
                     </div>
 
                     <button 
-                      onClick={() => toggleMyList(movie)} 
+                      onClick={() => toggleMyList(movie)}
+                      onMouseEnter={() => isAdded && setHoveredId(movie.id)}
+                      onMouseLeave={() => setHoveredId(null)}
                       className={`w-full flex items-center justify-center gap-1.5 border text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-300 ${
                         isAdded 
-                          ? 'bg-red-900/40 hover:bg-red-600 border-red-700/50 hover:border-red-500 cursor-pointer' 
+                          ? hoveredId === movie.id
+                            ? 'bg-red-600 border-red-500'
+                            : 'bg-green-600 border-green-500'
                           : 'bg-secondary-bg hover:bg-primary border-border-color hover:border-primary'
                       }`}
                     >
                       {isAdded ? (
-                        <><Bookmark className="w-4 h-4 fill-current" /> Usuń z listy</>
+                        hoveredId === movie.id
+                          ? <><Trash2 className="w-4 h-4" /> Usuń</>
+                          : <><Check className="w-4 h-4" /> Added</>
                       ) : (
                         <><Plus className="w-4 h-4" /> Add to List</>
                       )}

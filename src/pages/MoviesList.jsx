@@ -3,7 +3,7 @@ import { fromEvent, from } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { motion, AnimatePresence } from 'framer-motion';
 // Dodaliśmy ikonę Check
-import { Search, Loader2, Plus, Calendar, Bookmark, Film, Check } from 'lucide-react';
+import { Search, Loader2, Plus, Calendar, Bookmark, Film } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchMoviesMock } from '../api/mockData';
 
@@ -85,7 +85,7 @@ function MoviesList() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const addToMyList = (movie) => {
+  const toggleMyList = (movie) => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
     if (!isLoggedIn) {
@@ -95,14 +95,18 @@ function MoviesList() {
     }
 
     const savedList = JSON.parse(localStorage.getItem('myMovies')) || [];
-    if (!savedList.find(m => m.id === movie.id)) {
+    const isAlreadySaved = savedList.find(m => m.id === movie.id);
+
+    if (isAlreadySaved) {
+      const updated = savedList.filter(m => m.id !== movie.id);
+      localStorage.setItem('myMovies', JSON.stringify(updated));
+      setSavedMovieIds(prev => prev.filter(id => id !== movie.id));
+    } else {
       savedList.push(movie);
       localStorage.setItem('myMovies', JSON.stringify(savedList));
-      
-      // Natychmiastowa aktualizacja stanu, aby przycisk zmienił się na "Added"
       setSavedMovieIds(prev => [...prev, movie.id]);
-      window.dispatchEvent(new Event('storage'));
     }
+    window.dispatchEvent(new Event('storage'));
   };
 
   return (
@@ -176,12 +180,6 @@ function MoviesList() {
                         alt={movie.title} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                       />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark 
-                          className={`w-8 h-8 scale-75 group-hover:scale-100 transition-transform duration-300 ${isAdded ? 'text-primary fill-primary' : 'text-white'}`}
-                        />
-                      </div>
-                      {/* Stała ikonka bookmark w rogu gdy film dodany */}
                       {isAdded && (
                         <div className="absolute top-2 right-2 z-20">
                           <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
@@ -193,12 +191,6 @@ function MoviesList() {
                     </div>
                   ) : (
                     <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark 
-                          className={`w-8 h-8 scale-75 group-hover:scale-100 transition-transform duration-300 ${isAdded ? 'text-primary fill-primary' : 'text-white'}`}
-                        />
-                      </div>
-                      {/* Stała ikonka bookmark w rogu gdy film dodany */}
                       {isAdded && (
                         <div className="absolute top-2 right-2 z-20">
                           <Bookmark className="w-6 h-6 text-primary fill-primary drop-shadow-lg" />
@@ -222,18 +214,16 @@ function MoviesList() {
                       </div>
                     </div>
 
-                    {/* NOWE: DYNAMICZNY PRZYCISK (Stan zwykły vs Sukces) */}
                     <button 
-                      onClick={() => addToMyList(movie)} 
-                      disabled={isAdded}
+                      onClick={() => toggleMyList(movie)} 
                       className={`w-full flex items-center justify-center gap-1.5 border text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-300 ${
                         isAdded 
-                          ? 'bg-green-600 border-green-500 cursor-default opacity-90' 
+                          ? 'bg-red-900/40 hover:bg-red-600 border-red-700/50 hover:border-red-500 cursor-pointer' 
                           : 'bg-secondary-bg hover:bg-primary border-border-color hover:border-primary'
                       }`}
                     >
                       {isAdded ? (
-                        <><Check className="w-4 h-4" /> Added</>
+                        <><Bookmark className="w-4 h-4 fill-current" /> Usuń z listy</>
                       ) : (
                         <><Plus className="w-4 h-4" /> Add to List</>
                       )}

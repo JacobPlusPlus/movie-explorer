@@ -18,7 +18,7 @@ function MoviesList() {
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // NOWE: Synchronizacja przycisków z localStorage przy starcie aplikacji
+  //Synchronizacja przycisków z localStorage przy starcie aplikacji
   useEffect(() => {
     const updateSavedIds = () => {
       const savedList = JSON.parse(localStorage.getItem('myMovies')) || [];
@@ -32,7 +32,7 @@ function MoviesList() {
   }, []);
 
   const fetchMoviesWithFallback = async (searchTerm) => {
-    // NOWE TRIK: Jeśli pole jest puste, dla OMDb ładujemy domyślnie "Avengers"
+    //domyślnie "Avengers"
     const apiQuery = searchTerm || 'Avengers';
 
     try {

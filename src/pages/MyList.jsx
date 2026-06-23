@@ -70,8 +70,16 @@ function MyList() {
                   className="bg-card border border-border-color p-4 rounded-xl flex items-center justify-between group hover:border-primary/40 transition-all duration-300"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-secondary-bg border border-border-color rounded-lg hidden sm:flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
-                      <Film className="w-5 h-5" />
+                    <div className="w-14 h-20 bg-secondary-bg border border-border-color rounded-lg hidden sm:flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors overflow-hidden flex-shrink-0">
+                      {movie.poster ? (
+                        <img 
+                          src={movie.poster} 
+                          alt={movie.title} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                        />
+                      ) : (
+                        <Film className="w-5 h-5" />
+                      )}
                     </div>
                     <div>
                       <h4 className="font-bold text-white text-base group-hover:text-primary transition-colors">

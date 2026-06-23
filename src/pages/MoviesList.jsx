@@ -3,7 +3,7 @@ import { fromEvent, from } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { motion, AnimatePresence } from 'framer-motion';
 // Dodaliśmy ikonę Check
-import { Search, Loader2, Plus, Calendar, Bookmark, Film, Check } from 'lucide-react';
+import { Search, Loader2, Plus, Calendar, Bookmark, Film, Check, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { fetchMoviesMock } from '../api/mockData';
 
@@ -14,10 +14,11 @@ function MoviesList() {
   const [isLoading, setIsLoading] = useState(false);
   // NOWE: Stan przechowujący ID zapisanych filmów do zmiany koloru przycisku
   const [savedMovieIds, setSavedMovieIds] = useState([]); 
+  const [hoveredId, setHoveredId] = useState(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // NOWE: Synchronizacja przycisków z localStorage przy starcie aplikacji
+  //Synchronizacja przycisków z localStorage przy starcie aplikacji
   useEffect(() => {
     const updateSavedIds = () => {
       const savedList = JSON.parse(localStorage.getItem('myMovies')) || [];
@@ -31,7 +32,7 @@ function MoviesList() {
   }, []);
 
   const fetchMoviesWithFallback = async (searchTerm) => {
-    // NOWE TRIK: Jeśli pole jest puste, dla OMDb ładujemy domyślnie "Avengers"
+    //domyślnie "Avengers"
     const apiQuery = searchTerm || 'Avengers';
 
     try {
@@ -85,7 +86,7 @@ function MoviesList() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const addToMyList = (movie) => {
+  const toggleMyList = (movie) => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
     if (!isLoggedIn) {
@@ -95,14 +96,18 @@ function MoviesList() {
     }
 
     const savedList = JSON.parse(localStorage.getItem('myMovies')) || [];
-    if (!savedList.find(m => m.id === movie.id)) {
+    const isAlreadySaved = savedList.find(m => m.id === movie.id);
+
+    if (isAlreadySaved) {
+      const updated = savedList.filter(m => m.id !== movie.id);
+      localStorage.setItem('myMovies', JSON.stringify(updated));
+      setSavedMovieIds(prev => prev.filter(id => id !== movie.id));
+    } else {
       savedList.push(movie);
       localStorage.setItem('myMovies', JSON.stringify(savedList));
-      
-      // Natychmiastowa aktualizacja stanu, aby przycisk zmienił się na "Added"
       setSavedMovieIds(prev => [...prev, movie.id]);
-      window.dispatchEvent(new Event('storage'));
     }
+    window.dispatchEvent(new Event('storage'));
   };
 
   return (
@@ -176,19 +181,22 @@ function MoviesList() {
                         alt={movie.title} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                       />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
-                      </div>
+                      {isAdded && (
+                        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                          <Bookmark className="w-10 h-10 text-primary fill-primary drop-shadow-lg" />
+                        </div>
+                      )}
                       <span className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-md border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary z-20 shadow-xl">
                         {movie.genre}
                       </span>
                     </div>
                   ) : (
                     <div className="h-44 w-full bg-gradient-to-br from-secondary-bg to-card relative flex items-center justify-center p-4 border-b border-border-color group-hover:from-primary/10 transition-colors duration-300">
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                        <Bookmark className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform duration-300" />
-                      </div>
-                      <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
+                      {isAdded ? (
+                        <Bookmark className="w-10 h-10 text-primary fill-primary drop-shadow-lg" />
+                      ) : (
+                        <Film className="w-12 h-12 text-text-secondary/20 group-hover:text-primary/40 transition-colors" />
+                      )}
                       <span className="absolute bottom-3 left-3 bg-card border border-border-color text-xs font-semibold px-2.5 py-1 rounded-md text-primary shadow-lg z-20">
                         {movie.genre}
                       </span>
@@ -206,18 +214,22 @@ function MoviesList() {
                       </div>
                     </div>
 
-                    {/* NOWE: DYNAMICZNY PRZYCISK (Stan zwykły vs Sukces) */}
                     <button 
-                      onClick={() => addToMyList(movie)} 
-                      disabled={isAdded}
+                      onClick={() => toggleMyList(movie)}
+                      onMouseEnter={() => isAdded && setHoveredId(movie.id)}
+                      onMouseLeave={() => setHoveredId(null)}
                       className={`w-full flex items-center justify-center gap-1.5 border text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all duration-300 ${
                         isAdded 
-                          ? 'bg-green-600 border-green-500 cursor-default opacity-90' 
+                          ? hoveredId === movie.id
+                            ? 'bg-red-600 border-red-500'
+                            : 'bg-green-600 border-green-500'
                           : 'bg-secondary-bg hover:bg-primary border-border-color hover:border-primary'
                       }`}
                     >
                       {isAdded ? (
-                        <><Check className="w-4 h-4" /> Added</>
+                        hoveredId === movie.id
+                          ? <><Trash2 className="w-4 h-4" /> Usuń</>
+                          : <><Check className="w-4 h-4" /> Added</>
                       ) : (
                         <><Plus className="w-4 h-4" /> Add to List</>
                       )}
